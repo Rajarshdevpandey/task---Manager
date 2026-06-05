@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Task Manager App</title>
+<title>Advanced Task Manager App</title>
 
 <style>
 *{
@@ -31,16 +31,22 @@ border-radius:20px;
 box-shadow:0 10px 25px rgba(0,0,0,0.2);
 }
 
-h1{
+h1, h2{
 text-align:center;
 margin-bottom:20px;
 color:#333;
 }
 
-.input-box{
+.input-box, .auth-box{
 display:flex;
 gap:10px;
 margin-bottom:20px;
+}
+
+.auth-box{
+flex-direction: column;
+max-width: 400px;
+margin: 0 auto;
 }
 
 input{
@@ -49,6 +55,7 @@ padding:12px;
 border:2px solid #ddd;
 border-radius:10px;
 font-size:16px;
+width: 100%;
 }
 
 button{
@@ -57,11 +64,24 @@ border:none;
 border-radius:10px;
 cursor:pointer;
 font-weight:bold;
+transition: 0.2s;
 }
 
-.add-btn{
+button:hover {
+opacity: 0.9;
+}
+
+.add-btn, .auth-btn{
 background:#4CAF50;
 color:white;
+}
+
+.auth-toggle {
+background: none;
+color: #764ba2;
+text-align: center;
+margin-top: 10px;
+font-size: 14px;
 }
 
 .task{
@@ -72,6 +92,12 @@ padding:12px;
 background:#f5f5f5;
 margin-top:10px;
 border-radius:10px;
+word-break:break-word; 
+gap:15px; 
+}
+
+.task span {
+flex:1;
 }
 
 .completed{
@@ -81,11 +107,17 @@ color:gray;
 
 .actions button{
 margin-left:5px;
+padding: 8px 12px;
 }
 
 .complete-btn{
 background:#2196F3;
 color:white;
+}
+
+.edit-btn {
+background: #ff9800;
+color: white;
 }
 
 .delete-btn{
@@ -97,6 +129,16 @@ color:white;
 margin-top:15px;
 text-align:center;
 font-weight:bold;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.logout-btn {
+background: #555;
+color: white;
+padding: 6px 12px;
+font-size: 12px;
 }
 
 footer{
@@ -105,6 +147,11 @@ text-align:center;
 color:#666;
 font-size:14px;
 }
+
+/* Hide sections initially */
+.hidden {
+display: none !important;
+}
 </style>
 </head>
 
@@ -112,59 +159,200 @@ font-size:14px;
 
 <div class="container">
 
-<h1>Task Management Application</h1>
+    <div id="authSection">
+        <h2 id="authTitle">User Login</h2>
+        <div class="auth-box">
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button class="auth-btn" id="mainAuthBtn" onclick="handleAuth()">Login</button>
+            <button class="auth-toggle" id="toggleAuthBtn" onclick="toggleAuthMode()">Don't have an account? Signup</button>
+        </div>
+    </div>
 
-<div class="input-box">
-<input type="text" id="taskInput" placeholder="Enter a task">
-<button class="add-btn" onclick="addTask()">Add Task</button>
-</div>
+    <div id="appSection" class="hidden">
+        <h1>Task Management Application</h1>
 
-<div id="taskList"></div>
+        <div class="input-box">
+            <input type="text" id="taskInput" placeholder="Enter a task">
+            <button class="add-btn" id="submitTaskBtn" onclick="addTask()">Add Task</button>
+        </div>
 
-<div class="stats">
-Total Tasks: <span id="count">0</span>
-</div>
+        <div id="taskList"></div>
 
-<footer>
-Created by Rajarshdev Pandey
-</footer>
+        <div class="stats">
+            <div>Total Tasks: <span id="count">0</span></div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <footer>
+        Created by Rajarshdev Pandey
+    </footer>
 
 </div>
 
 <script>
+// State Management
+let isSignUpMode = false;
+let currentUser = localStorage.getItem("currentUser") || null;
+let tasks = [];
+let editIndex = null;
 
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+// Page Load Check
+window.onload = function() {
+    if (currentUser) {
+        showApp();
+    } else {
+        showAuth();
+    }
+};
+
+// Auth UI Toggle
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
+    document.getElementById("authTitle").innerText = isSignUpMode ? "User Signup" : "User Login";
+    document.getElementById("mainAuthBtn").innerText = isSignUpMode ? "Signup" : "Login";
+    document.getElementById("toggleAuthBtn").innerText = isSignUpMode ? "Already have an account? Login" : "Don't have an account? Signup";
+}
+
+// Login / Signup Logic
+function handleAuth() {
+    const userInp = document.getElementById("username").value.trim();
+    const passInp = document.getElementById("password").value.trim();
+
+    if (!userInp || !passInp) {
+        alert("Please fill all fields!");
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem("tm_users")) || {};
+
+    if (isSignUpMode) {
+        if (users[userInp]) {
+            alert("Username already exists!");
+            return;
+        }
+        users[userInp] = passInp;
+        localStorage.setItem("tm_users", JSON.stringify(users));
+        alert("Signup Successful! Please Login.");
+        toggleAuthMode();
+    } else {
+        if (users[userInp] && users[userInp] === passInp) {
+            currentUser = userInp;
+            localStorage.setItem("currentUser", currentUser);
+            showApp();
+        } else {
+            alert("Invalid Username or Password!");
+        }
+    }
+}
+
+function logout() {
+    localStorage.removeItem("currentUser");
+    currentUser = null;
+    showAuth();
+}
+
+function showAuth() {
+    document.getElementById("authSection").classList.remove("hidden");
+    document.getElementById("appSection").classList.add("hidden");
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+}
+
+function showApp() {
+    document.getElementById("authSection").classList.add("hidden");
+    document.getElementById("appSection").classList.remove("hidden");
+    loadTasks();
+}
+
+// Task Management Logic (CRUD)
+function loadTasks() {
+    try {
+        let allTasks = JSON.parse(localStorage.getItem("tm_tasks")) || {};
+        tasks = allTasks[currentUser] || [];
+    } catch (e) {
+        tasks = [];
+    }
+    renderTasks();
+}
 
 function saveTasks(){
-localStorage.setItem("tasks", JSON.stringify(tasks));
-renderTasks();
+    let allTasks = JSON.parse(localStorage.getItem("tm_tasks")) || {};
+    allTasks[currentUser] = tasks;
+    localStorage.setItem("tm_tasks", JSON.stringify(allTasks));
+    renderTasks();
 }
 
 function addTask(){
-const input = document.getElementById("taskInput");
+    const input = document.getElementById("taskInput");
+    if(input.value.trim() === "") return;
 
-if(input.value.trim()==="") return;
+    if (editIndex !== null) {
+        // UPDATE (Edit) Mode
+        tasks[editIndex].text = input.value.trim();
+        editIndex = null;
+        document.getElementById("submitTaskBtn").innerText = "Add Task";
+        document.getElementById("submitTaskBtn").style.background = "#4CAF50";
+    } else {
+        // CREATE Mode
+        tasks.push({
+            text: input.value.trim(),
+            completed: false
+        });
+    }
 
-tasks.push({
-text: input.value,
-completed:false
-});
+    input.value = "";
+    saveTasks();
+}
 
-input.value="";
-saveTasks();
+function editTask(index) {
+    const input = document.getElementById("taskInput");
+    input.value = tasks[index].text;
+    input.focus();
+    editIndex = index;
+    document.getElementById("submitTaskBtn").innerText = "Update";
+    document.getElementById("submitTaskBtn").style.background = "#ff9800";
 }
 
 function toggleTask(index){
-tasks[index].completed=!tasks[index].completed;
-saveTasks();
+    tasks[index].completed = !tasks[index].completed;
+    saveTasks();
 }
 
 function deleteTask(index){
-tasks.splice(index,1);
-saveTasks();
+    if(editIndex === index) {
+        editIndex = null;
+        document.getElementById("taskInput").value = "";
+        document.getElementById("submitTaskBtn").innerText = "Add Task";
+        document.getElementById("submitTaskBtn").style.background = "#4CAF50";
+    }
+    tasks.splice(index, 1);
+    saveTasks();
 }
 
 function renderTasks(){
+    const taskList = document.getElementById("taskList");
+    taskList.innerHTML = "";
 
-const taskList=document.getElementById("taskList");
+    tasks.forEach((task, index)=>{
+        taskList.innerHTML += `
+        <div class="task">
+            <span class="${task.completed ? 'completed' : ''}">
+                ${task.text}
+            </span>
+            <div class="actions">
+                <button class="complete-btn" onclick="toggleTask(${index})">✔</button>
+                <button class="edit-btn" onclick="editTask(${index})">✏️</button>
+                <button class="delete-btn" onclick="deleteTask(${index})">🗑</button>
+            </div>
+        </div>
+        `;
+    });
 
+    document.getElementById("count").innerText = tasks.length;
+}
+</script>
+
+</body>
+</html>
